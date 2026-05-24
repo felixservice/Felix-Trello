@@ -1,15 +1,15 @@
 import React from 'react';
 import { useAppStore } from '../store/appStore';
 import { formatDistanceToNow } from 'date-fns';
-import { Flag, Paperclip, CheckCircle2 } from 'lucide-react';
+import { Flag, Paperclip, CheckCircle2, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 function CardItem({ card, boardId, listId }) {
   const { openModal } = useAppStore();
-  const priorityColors = {
-    low: 'text-green-500 bg-green-500/10',
-    medium: 'text-yellow-500 bg-yellow-500/10',
-    high: 'text-red-500 bg-red-500/10',
+  const priorityEmojis = {
+    low: '🟢',
+    medium: '🟡',
+    high: '🔴',
   };
 
   const completedChecklistItems = card.checklist?.filter((item) => item.completed).length || 0;
@@ -52,12 +52,12 @@ function CardItem({ card, boardId, listId }) {
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Priority */}
           {card.priority && (
-            <span className={`flex items-center gap-1 ${priorityColors[card.priority]}`}>
-              <Flag size={12} />
+            <span title={card.priority}>
+              {priorityEmojis[card.priority]}
             </span>
           )}
 
@@ -66,6 +66,14 @@ function CardItem({ card, boardId, listId }) {
             <span className="flex items-center gap-1">
               <CheckCircle2 size={12} />
               {completedChecklistItems}/{totalChecklistItems}
+            </span>
+          )}
+
+          {/* Comments */}
+          {card.comments && card.comments.length > 0 && (
+            <span className="flex items-center gap-1">
+              <MessageSquare size={12} />
+              {card.comments.length}
             </span>
           )}
 
@@ -80,7 +88,7 @@ function CardItem({ card, boardId, listId }) {
 
         {/* Due Date */}
         {card.dueDate && (
-          <span className="text-gray-500 dark:text-gray-400">
+          <span className="text-gray-500 dark:text-gray-400 text-xs">
             {formatDistanceToNow(new Date(card.dueDate), { addSuffix: false })}
           </span>
         )}

@@ -4,11 +4,13 @@ import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import BoardView from './components/BoardView';
 import Modal from './components/Modal';
+import AuthModal from './components/AuthModal';
 import { Moon, Sun } from 'lucide-react';
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
-  const { currentBoardId, boards, initializeStore, loadFromStorage } = useAppStore();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { currentBoardId, boards, initializeStore, loadFromStorage, isAuthenticated, user } = useAppStore();
   const currentBoard = boards.find(b => b.id === currentBoardId);
 
   useEffect(() => {
@@ -37,6 +39,10 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
   };
+
+  if (!isAuthenticated) {
+    return <AuthModal />;
+  }
 
   return (
     <div className={`${darkMode ? 'dark' : ''} flex h-screen bg-white dark:bg-[#0f0f0f]`}>

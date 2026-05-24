@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
-import { X, Plus, Trash2, Copy, Calendar, Tag } from 'lucide-react';
+import { X, Plus, Trash2, Calendar, Tag, MessageSquare, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 function Modal() {
   const {
@@ -12,12 +12,14 @@ function Modal() {
     closeModal,
     updateCard,
     deleteCard,
-    searchQuery,
+    addComment,
+    user,
   } = useAppStore();
 
   const [localCard, setLocalCard] = useState(null);
   const [cardBoardId, setCardBoardId] = useState(null);
   const [cardListId, setCardListId] = useState(null);
+  const [commentText, setCommentText] = useState('');
 
   // Find the card and its location
   useEffect(() => {
@@ -70,7 +72,7 @@ function Modal() {
   };
 
   const handleAddLabel = () => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE'];
     const newLabel = {
       id: Math.random().toString(36).substr(2, 9),
       name: 'New Label',
@@ -81,6 +83,20 @@ function Modal() {
       labels: [...(localCard.labels || []), newLabel],
     });
   };
+
+  const handleAddComment = () => {
+    if (commentText.trim()) {
+      addComment(cardBoardId, cardListId, currentCardId, {
+        text: commentText,
+        author: user?.name || 'Anonymous',
+        avatar: user?.avatar,
+      });
+      setCommentText('');
+    }
+  };
+
+  const completedChecklistItems = localCard.checklist?.filter((item) => item.completed).length || 0;
+  const totalChecklistItems = localCard.checklist?.length || 0;
 
   return (
     <AnimatePresence>
@@ -95,7 +111,7 @@ function Modal() {
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -134,32 +150,50 @@ function Modal() {
               />
             </div>
 
-            {/* Priority */}
-            <div>
-              <label className="block text-sm font-semibold mb-2">Priority</label>
-              <select
-                value={localCard.priority || 'medium'}
-                onChange={(e) => setLocalCard({ ...localCard, priority: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Priority */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Priority</label>
+                <select
+                  value={localCard.priority || 'medium'}
+                  onChange={(e) => setLocalCard({ ...localCard, priority: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="low">🟢 Low</option>
+                  <option value="medium">🟡 Medium</option>
+                  <option value="high">🔴 High</option>
+                </select>
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <label className="block text-sm font-semibold mb-2 flex items-center gap-2">
+                  <Calendar size={18} /> Due Date
+                </label>
+                <input
+                  type="datetime-local"
+                  value={localCard.dueDate ? localCard.dueDate.slice(0, 16) : ''}
+                  onChange={(e) => setLocalCard({ ...localCard, dueDate: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
 
-            {/* Due Date */}
-            <div>
-              <label className="block text-sm font-semibold mb-2 flex items-center gap-2">
-                <Calendar size={18} /> Due Date
-              </label>
-              <input
-                type="datetime-local"
-                value={localCard.dueDate ? localCard.dueDate.slice(0, 16) : ''}
-                onChange={(e) => setLocalCard({ ...localCard, dueDate: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            {/* Checklist Progress */}
+            {totalChecklistItems > 0 && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold">Progress</span>
+                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">{completedChecklistItems}/{totalChecklistItems}</span>
+                </div>
+                <div className="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all"
+                    style={{ width: `${(completedChecklistItems / totalChecklistItems) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Labels */}
             <div>
@@ -202,9 +236,7 @@ function Modal() {
 
             {/* Checklist */}
             <div>
-              <label className="block text-sm font-semibold mb-2 flex items-center gap-2">
-                Checklist
-              </label>
+              <label className="block text-sm font-semibold mb-2">Checklist</label>
               <div className="space-y-2 mb-3">
                 {localCard.checklist &&
                   localCard.checklist.map((item) => (
@@ -256,6 +288,43 @@ function Modal() {
               >
                 <Plus size={16} /> Add Item
               </button>
+            </div>
+
+            {/* Comments */}
+            <div>
+              <label className="block text-sm font-semibold mb-2 flex items-center gap-2">
+                <MessageSquare size={18} /> Comments ({localCard.comments?.length || 0})
+              </label>
+              <div className="space-y-3 mb-4 max-h-48 overflow-y-auto">
+                {localCard.comments?.map((comment) => (
+                  <div key={comment.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      {comment.avatar && <img src={comment.avatar} alt={comment.author} className="w-6 h-6 rounded-full" />}
+                      <span className="font-semibold text-sm">{comment.author}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{comment.text}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
+                  placeholder="Add a comment..."
+                  className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleAddComment}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
             </div>
           </div>
 

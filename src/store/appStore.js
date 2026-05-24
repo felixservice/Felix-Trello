@@ -24,10 +24,57 @@ const initialState = {
               labels: [],
               checklist: [],
               attachments: [],
+              comments: [],
               createdAt: new Date().toISOString(),
             },
           ],
         },
+      ],
+    },
+  ],
+  templates: [
+    {
+      id: 'todo',
+      name: 'To-Do Board',
+      description: 'Simple task list',
+      lists: [
+        { name: 'To Do', cards: [] },
+        { name: 'In Progress', cards: [] },
+        { name: 'Done', cards: [] },
+      ],
+    },
+    {
+      id: 'study',
+      name: 'Study Planner',
+      description: 'Organize your learning',
+      lists: [
+        { name: 'Topics to Learn', cards: [] },
+        { name: 'Currently Studying', cards: [] },
+        { name: 'Completed', cards: [] },
+        { name: 'Review Later', cards: [] },
+      ],
+    },
+    {
+      id: 'gamedev',
+      name: 'Game Dev Roadmap',
+      description: 'Track your game development',
+      lists: [
+        { name: 'Design', cards: [] },
+        { name: 'Development', cards: [] },
+        { name: 'Testing', cards: [] },
+        { name: 'Release', cards: [] },
+      ],
+    },
+    {
+      id: 'project',
+      name: 'Project Management',
+      description: 'Standard project workflow',
+      lists: [
+        { name: 'Backlog', cards: [] },
+        { name: 'To Do', cards: [] },
+        { name: 'In Progress', cards: [] },
+        { name: 'Review', cards: [] },
+        { name: 'Done', cards: [] },
       ],
     },
   ],
@@ -36,25 +83,71 @@ const initialState = {
   isModalOpen: false,
   searchQuery: '',
   activityLog: [],
+  isAuthenticated: false,
+  user: null,
 };
 
 export const useAppStore = create((set, get) => ({
   ...initialState,
 
+  // Auth actions
+  login: (name) => {
+    const user = {
+      id: uuidv4(),
+      name,
+      email: `${name.toLowerCase()}@felix-trello.com`,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+      joinedAt: new Date().toISOString(),
+    };
+    set({ isAuthenticated: true, user });
+    localStorage.setItem('felixTrelloUser', JSON.stringify(user));
+  },
+
+  logout: () => {
+    set({ isAuthenticated: false, user: null });
+    localStorage.removeItem('felixTrelloUser');
+  },
+
+  loadUserFromStorage: () => {
+    const stored = localStorage.getItem('felixTrelloUser');
+    if (stored) {
+      try {
+        const user = JSON.parse(stored);
+        set({ isAuthenticated: true, user });
+      } catch (error) {
+        console.error('Failed to load user:', error);
+      }
+    }
+  },
+
   initializeStore: () => {
     const state = get();
+    get().loadUserFromStorage();
     if (state.boards.length > 0 && !state.currentBoardId) {
       set({ currentBoardId: state.boards[0].id });
     }
   },
 
-  createBoard: (name, description = '') => {
+  createBoard: (name, description = '', templateId = null) => {
+    let lists = [];
+    if (templateId) {
+      const template = get().templates.find(t => t.id === templateId);
+      if (template) {
+        lists = template.lists.map(list => ({
+          id: uuidv4(),
+          boardId: 'temp',
+          name: list.name,
+          cards: [],
+        }));
+      }
+    }
+
     const newBoard = {
       id: uuidv4(),
       name,
       description,
       createdAt: new Date().toISOString(),
-      lists: [],
+      lists,
     };
     set((state) => ({
       boards: [...state.boards, newBoard],
@@ -138,6 +231,7 @@ export const useAppStore = create((set, get) => ({
       labels: [],
       checklist: [],
       attachments: [],
+      comments: [],
       createdAt: new Date().toISOString(),
     };
     set((state) => ({
@@ -197,6 +291,36 @@ export const useAppStore = create((set, get) => ({
     }));
   },
 
+  addComment: (boardId, listId, cardId, comment) => {
+    set((state) => ({
+      boards: state.boards.map((board) =>
+        board.id === boardId
+          ? {
+              ...board,
+              lists: board.lists.map((list) =>
+                list.id === listId
+                  ? {
+                      ...list,
+                      cards: list.cards.map((card) =>
+                        card.id === cardId
+                          ? {
+                              ...card,
+                              comments: [
+                                ...card.comments,
+                                { id: uuidv4(), ...comment, createdAt: new Date().toISOString() },
+                              ],
+                            }
+                          : card
+                      ),
+                    }
+                  : list
+              ),
+            }
+          : board
+      ),
+    }));
+  },
+
   moveCard: (sourceListId, destListId, sourceBoardId, destBoardId, cardId, sourceIndex, destIndex) => {
     set((state) => {
       const newBoards = state.boards.map((board) => ({ ...board }));
@@ -238,9 +362,31 @@ export const useAppStore = create((set, get) => ({
     set((state) => ({
       activityLog: [
         { id: uuidv4(), action, timestamp: new Date().toISOString() },
-        ...state.activityLog.slice(0, 49),
+        ...state.activityLog.slice(0, 99),
       ],
     }));
+  },
+
+  getFilteredCards: () => {
+    const state = get();
+    const query = state.searchQuery.toLowerCase();
+    const results = [];
+
+    state.boards.forEach((board) => {
+      board.lists?.forEach((list) => {
+        list.cards?.forEach((card) => {
+          if (
+            card.title.toLowerCase().includes(query) ||
+            card.description.toLowerCase().includes(query) ||
+            card.labels.some(l => l.name.toLowerCase().includes(query))
+          ) {
+            results.push({ ...card, boardId: board.id, listId: list.id });
+          }
+        });
+      });
+    });
+
+    return results;
   },
 
   loadFromStorage: () => {
